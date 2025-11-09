@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>AgroAI Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+      /* Minimal inline styling for quick testing; replace with style.css if you have one */
+      body { font-family: Arial, sans-serif; background:#f3f7f9; margin:0; padding:0;}
+      .container { max-width:900px; margin:24px auto; background:white; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08); padding:18px;}
+      header h1 { margin:0 0 6px 0;}
+      .chat-container { display:flex; gap:16px; }
+      .input-section { flex: 1 1 320px; display:flex; flex-direction:column; gap:8px; }
+      select, textarea, button, input { padding:8px; border-radius:6px; border:1px solid #ddd; font-size:14px;}
+      textarea { min-height:100px; resize:vertical; }
+      .chat-history { flex:1 1 420px; height:420px; overflow:auto; border:1px solid #eee; padding:12px; background:#fafafa; border-radius:6px;}
+      .message { margin:6px 0; padding:10px; border-radius:8px; max-width:90%; white-space:pre-wrap; }
+      .user-message { background:#e0f2ff; align-self:flex-end; }
+      .bot-message { background:#fff; border:1px solid #eee; }
+      .meta { font-size:12px; color:#666; margin-top:4px;}
+      .top-controls { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AgroAI Assistant</h1>
+            <p>Your intelligent agricultural guide</p>
+        </header>
+
+        <div class="top-controls">
+            <label for="language">Language:</label>
+            <select id="language">
+                <option value="english">English</option>
+                <option value="tamil">Tamil (தமிழ்)</option>
+            </select>
+
+            <button id="export-btn">Export History</button>
+            <button id="clear-btn">Clear History</button>
+
+            <input id="market-crop" placeholder="Enter crop for market (e.g. rice)"/>
+            <button id="market-btn">Market Linkage</button>
+        </div>
+
+        <div class="chat-container">
+            <div class="input-section">
+                <select id="soil-type" required>
+                    <option value="">Select Soil Type</option>
+                    {% for soil_type, description in soil_types.items() %}
+                    <option value="{{ soil_type }}">{{ soil_type.title() }} - {{ description }}</option>
+                    {% endfor %}
+                </select>
+
+                <select id="climate" required>
+                    <option value="">Select Climate Zone</option>
+                    {% for climate, description in climate_zones.items() %}
+                    <option value="{{ climate }}">{{ climate.title() }} - {{ description }}</option>
+                    {% endfor %}
+                </select>
+
+                <textarea id="query" placeholder="Ask your agricultural question here..." required></textarea>
+                <button id="ask-btn">Get Advice</button>
+
+                <div style="margin-top:8px;">
+                  <small>Tip: Keep asking follow-ups — the chat will remain continuous.</small>
+                </div>
+            </div>
+
+            <div class="chat-history" id="chat-history">
+                <!-- Chat messages will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
