@@ -13,7 +13,7 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel("gemini-2.0-flash-exp")
+    model = genai.GenerativeModel("gemini-2.5-pro")
 else:
     model = None
 
@@ -110,23 +110,349 @@ def get_advice():
     return jsonify({"response": answer, "timestamp": ts})
 
 
-# ---------- Online Market Linkage ----------
-@app.route('/market_online', methods=['GET'])
-def market_online():
-    product = request.args.get('product', '')
-    if not product:
-        return jsonify({'results': []})
+# ---------- Real-Time Market Price (INR/kg) ----------
+# ---------- Online Market Linkage (REAL mandi price via data.gov.in fallback) ----------
+import os
+
+DATA_GOV_API_KEY = os.getenv("DATA_GOV_API_KEY")        # get this from https://data.gov.in/ (register -> API key)
+DATA_GOV_RESOURCE_ID = os.getenv("DATA_GOV_RESOURCE_ID")  # dataset resource id (open dataset page -> API -> copy resource_id)
+# Example dataset page (Agmarknet daily prices) on data.gov.in: "Current daily price of various commodities from various markets (Mandi)". :contentReference[oaicite:3]{index=3}
+
+def query_data_gov_price(product):
+    """
+    Query data.gov.in Agmarknet dataset for the latest record matching `product`.
+    Returns a dict like: {'source':'DATA_GOV', 'price_per_kg': float, 'unit': 'INR/kg', 'market': '...', 'date': 'YYYY-MM-DD'}
+    or None if not available / on error.
+    """
+    if not DATA_GOV_API_KEY or not DATA_GOV_RESOURCE_ID:
+        return None
 
     try:
-        results = [
-            {"title": f"{product} on Amazon", "description": "Available for online purchase", "link": f"https://www.amazon.in/s?k={product}", "source": "Amazon"},
-            {"title": f"{product} on Flipkart", "description": "Find the best prices", "link": f"https://www.flipkart.com/search?q={product}", "source": "Flipkart"},
-            {"title": f"{product} on BigBasket", "description": "Order now for home delivery", "link": f"https://www.bigbasket.com/ps/?q={product}", "source": "BigBasket"}
-        ]
-        return jsonify({'results': results})
+        # Build request params. data.gov.in API accepts filters like filters[commodity]=<name>
+        base = f"https://api.data.gov.in/resource/{DATA_GOV_RESOURCE_ID}"
+        params = {
+            "api-key": DATA_GOV_API_KEY,
+            "format": "json",
+            # using commodity filter (field name on resource may vary; try common keys)
+            "filters[commodity]": product,
+            "limit": 5,
+            "offset": 0,
+            # sort by date descending if supported
+            "sort[price_date]": "desc"
+        }
+
+        r = requests.get(base, params=params, timeout=12)
+        if r.status_code != 200:
+            # try without filters key name (some datasets use 'commodity' or 'Commodity')
+            # fallback: try simple search endpoint with q param
+            alt_params = {
+                "api-key": DATA_GOV_API_KEY,
+                "format": "json",
+                "q": product,
+                "limit": 5
+            }
+            r = requests.get(base, params=alt_params, timeout=12)
+            if r.status_code != 200:
+                return None
+
+        payload = r.json()
+        records = payload.get("records") or payload.get("result") or payload.get("data") or []
+        if not records:
+            return None
+
+        # pick the most recent record that has a numeric price
+        # dataset fields vary; look for modal_price / modalprice / min_price / max_price etc.
+        price = None
+        unit = "INR/kg"
+        market = None
+        date = None
+
+        for rec in records:
+            # find common fields robustly
+            # some datasets use 'modal_price', 'Modal Price', 'modalprice', etc.
+            # We'll try a set of likely keys
+            # Also record may include price_unit or quoted unit (e.g., 'Quintal' or 'kg')
+            lower_keys = {k.lower(): k for k in rec.keys()}
+            def get_field(possible):
+                for p in possible:
+                    k = lower_keys.get(p.lower())
+                    if k and rec.get(k) not in (None, "", "NA"):
+                        return rec.get(k)
+                return None
+
+            modal = get_field(["modal_price", "modalprice", "modal price", "modal"])
+            minp  = get_field(["min_price", "minprice", "min price"])
+            maxp  = get_field(["max_price", "maxprice", "max price"])
+            unit_field = get_field(["price_unit", "unit", "priceunit"])
+            date = get_field(["price_date", "date", "recorded_date", "trade_date"]) or date
+            market = get_field(["market", "market_name", "marketname", "marketplace"]) or market
+
+            chosen = modal or ( (float(minp)+float(maxp))/2 if minp and maxp else None ) or minp or maxp
+            if chosen:
+                # try convert to float (strip commas, rupee symbols)
+                s = str(chosen).replace(",", "").replace("Rs.", "").replace("₹", "").strip()
+                try:
+                    price_value = float(s)
+                except Exception:
+                    # price may be non-numeric, skip
+                    price_value = None
+                if price_value:
+                    # determine unit: if unit_field contains 'Quintal' -> convert to per kg
+                    u = (unit_field or "").lower() if unit_field else ""
+                    if "quintal" in u:
+                        # price is per quintal (100 kg)
+                        price_per_kg = round(price_value / 100.0, 2)
+                        unit = "INR/kg"
+                    elif "kg" in u or "kilogram" in u:
+                        price_per_kg = round(price_value, 2)
+                        unit = "INR/kg"
+                    elif "ton" in u or "tonne" in u:
+                        # per tonne -> divide by 1000
+                        price_per_kg = round(price_value / 1000.0, 2)
+                        unit = "INR/kg"
+                    else:
+                        # unknown unit: many Agmarknet records are per Quintal, assume quintal if no unit and value large (>100)
+                        if price_value > 1000:
+                            price_per_kg = round(price_value / 100.0, 2)
+                        else:
+                            price_per_kg = round(price_value, 2)
+                    return {
+                        "source": "DATA_GOV",
+                        "price_per_kg": price_per_kg,
+                        "raw_price": price_value,
+                        "raw_unit": unit_field or "unknown",
+                        "unit": unit,
+                        "market": market,
+                        "date": date
+                    }
+        return None
     except Exception as e:
-        print("Error fetching product data:", e)
-        return jsonify({'results': [], 'error': str(e)})
+        # don't crash server on any errors
+        print("DATA_GOV query error:", e)
+        return None
+
+# # market online
+
+# @app.route('/market_online', methods=['GET'])
+# def market_online():
+#     product = request.args.get('product', '').strip().lower()
+#     if not product:
+#         return jsonify({'results': []})
+
+#     API_KEY = os.getenv("DATA_GOV_API_KEY")
+#     RESOURCE_ID = os.getenv("DATA_GOV_RESOURCE_ID")
+#     if not API_KEY or not RESOURCE_ID:
+#         return jsonify({
+#             "results": [{
+#                 "title": "API configuration missing.",
+#                 "description": "Please check DATA_GOV_API_KEY and DATA_GOV_RESOURCE_ID in your .env file.",
+#                 "source": "AgroAI",
+#                 "price_in_inr_per_kg": "N/A"
+#             }]
+#         })
+
+#     try:
+#         base_url = f"https://api.data.gov.in/resource/{RESOURCE_ID}"
+#         possible_filter_keys = [
+#             "commodity", "commodityname", "commodity_name",
+#             "variety", "crop", "crops", "commodities"
+#         ]
+
+#         records = []
+#         for key in possible_filter_keys:
+#             params = {
+#                 "api-key": API_KEY,
+#                 "format": "json",
+#                 "limit": 200,
+#                 f"filters[{key}]": product
+#             }
+#             resp = requests.get(base_url, params=params, timeout=10)
+#             if resp.status_code == 200:
+#                 data = resp.json()
+#                 recs = data.get("records", [])
+#                 if recs:
+#                     records = recs
+#                     break  # Found valid records, stop searching
+
+#         if not records:
+#             return jsonify({
+#                 "results": [{
+#                     "title": f"No live data found for '{product}'.",
+#                     "description": "Please try another crop (e.g., rice, onion, tomato).",
+#                     "source": "AgroAI",
+#                     "price_in_inr_per_kg": "N/A"
+#                 }]
+#             })
+
+#         # Pick the most recent valid entry
+#         valid_record = None
+#         for rec in records:
+#             for key in rec.keys():
+#                 if "price" in key.lower() and str(rec[key]).strip() not in ("", "NA", "N/A"):
+#                     valid_record = rec
+#                     break
+#             if valid_record:
+#                 break
+
+#         if not valid_record:
+#             return jsonify({
+#                 "results": [{
+#                     "title": f"No valid price data found for '{product}'.",
+#                     "description": "Dataset might not include recent daily prices.",
+#                     "source": "data.gov.in",
+#                     "price_in_inr_per_kg": "N/A"
+#                 }]
+#             })
+
+#         # Extract known fields safely
+#         def find_field(rec, names, default="N/A"):
+#             for n in names:
+#                 for k in rec.keys():
+#                     if n.lower() == k.lower():
+#                         return rec[k]
+#             return default
+
+#         commodity = find_field(valid_record, ["commodity", "commodityname", "commodity_name", "crop"])
+#         variety = find_field(valid_record, ["variety", "variety_name"])
+#         market = find_field(valid_record, ["market", "market_name"])
+#         district = find_field(valid_record, ["district", "district_name"])
+#         state = find_field(valid_record, ["state", "state_name"])
+#         date = find_field(valid_record, ["arrival_date", "date", "price_date", "recorded_date"])
+
+#         price_field = None
+#         for key in valid_record.keys():
+#             if "modal" in key.lower() or "price" in key.lower():
+#                 price_field = key
+#                 break
+
+#         modal_price = str(valid_record.get(price_field, "0")).replace(",", "").replace("₹", "").strip()
+#         try:
+#             modal_price = float(modal_price)
+#         except:
+#             modal_price = 0.0
+
+#         unit = find_field(valid_record, ["unit_of_price", "price_unit", "unit"], "Quintal")
+#         if "quintal" in unit.lower():
+#             price_per_kg = round(modal_price / 100, 2)
+#         elif "ton" in unit.lower() or "tonne" in unit.lower():
+#             price_per_kg = round(modal_price / 1000, 2)
+#         else:
+#             price_per_kg = modal_price
+
+#         return jsonify({
+#             "results": [{
+#                 "title": f"{commodity.title() if commodity else product.title()} — {district}, {state}",
+#                 "description": f"Market: {market}, Variety: {variety}, Date: {date}",
+#                 "source": "Govt. of India (data.gov.in)",
+#                 "price_in_inr_per_kg": f"₹{price_per_kg:.2f} per kg"
+#             }]
+#         })
+
+#     except Exception as e:
+#         print("Error fetching real-time price data:", e)
+#         return jsonify({
+#             "results": [{
+#                 "title": f"Error fetching price for '{product}'.",
+#                 "description": str(e),
+#                 "source": "AgroAI",
+#                 "price_in_inr_per_kg": "N/A"
+#             }]
+#         })
+
+@app.route('/market_online', methods=['GET'])
+def msp_rate():
+    crop = request.args.get('product', '').strip().lower()
+    if not crop:
+        return jsonify({'error': 'Please provide a crop name'})
+
+    API_KEY = os.getenv("DATA_GOV_API_KEY")
+    RESOURCE_ID = "6f655085-856d-4246-a516-5d6b3bebb990"
+    url = f"https://api.data.gov.in/resource/{RESOURCE_ID}?api-key={API_KEY}&format=json&limit=100"
+
+    def quintal_to_kg(price_quintal):
+        """Convert ₹ per quintal to ₹ per kg (1 quintal = 100 kg)."""
+        try:
+            return round(float(price_quintal) / 100.0, 2)
+        except (TypeError, ValueError):
+            return None
+
+    # Static short information for well-known crops
+    product_info = {
+        "wheat": {
+            "desc": "Wheat is a staple cereal grain widely used in breads and rotis.",
+            "benefits": "Rich in fiber and protein; aids digestion and heart health.",
+            "calories": "3.4 kcal/g"
+        },
+        "rice": {
+            "desc": "Rice is a key energy food and staple in most Indian diets.",
+            "benefits": "Provides quick energy and essential carbohydrates.",
+            "calories": "3.6 kcal/g"
+        },
+        "gram": {
+            "desc": "Gram (chickpea) is a protein-rich legume used in various dishes.",
+            "benefits": "Supports muscle growth and balances blood sugar.",
+            "calories": "3.8 kcal/g"
+        },
+        "mustard": {
+            "desc": "Mustard seeds are used for spice, oil extraction, and condiments.",
+            "benefits": "Boosts metabolism and contains anti-inflammatory compounds.",
+            "calories": "5.0 kcal/g"
+        },
+        "barley": {
+            "desc": "Barley is a nutrient-dense cereal known for its earthy flavor.",
+            "benefits": "Lowers cholesterol and promotes gut health.",
+            "calories": "3.5 kcal/g"
+        }
+    }
+
+    try:
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        records = data.get("records", [])
+
+        match = next(
+            (r for r in records if crop in r.get("rabi_crop_wise", "").lower()),
+            None
+        )
+
+        if not match:
+            return jsonify({
+                "results": [{
+                    "title": f"No MSP data found for '{crop}'.",
+                    "description": "Try common Rabi crops like Wheat, Gram, Barley, Mustard, etc.",
+                    "source": "data.gov.in"
+                }]
+            })
+
+        msp_2025 = match.get("_2025_26___msp")
+        msp_per_kg = quintal_to_kg(msp_2025)
+
+        info = product_info.get(crop, {
+            "desc": "An agricultural product widely cultivated across India.",
+            "benefits": "Provides essential nutrients and supports human health.",
+            "calories": "Varies between 3–5 kcal/g"
+        })
+
+        return jsonify({
+            "results": [{
+                "title": f"{match.get('rabi_crop_wise', crop).title()} — MSP (2025-26)",
+                "description": (
+                    f"MSP: ₹{msp_2025}/quintal (₹{msp_per_kg}/kg)\n"
+                    f"Short Description: {info['desc']}\n"
+                    f"Health Benefits: {info['benefits']}\n"
+                    f"Calories per gram: {info['calories']}"
+                ),
+                "price_in_inr_per_kg": f"₹{msp_per_kg}/kg",
+                "source": "Government of India (Rajya Sabha)"
+            }]
+        })
+
+    except Exception as e:
+        return jsonify({
+            "error": f"Failed to fetch MSP data: {e}"
+        })
+
+
 
 
 if __name__ == "__main__":

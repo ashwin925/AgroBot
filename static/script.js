@@ -538,8 +538,8 @@ function applyTranslations(langKey) {
   const t = TRANSLATIONS[langKey] || TRANSLATIONS['english'];
 
   // header & labels
-  pageTitle.textContent = t.title;
-  pageSubtitle.textContent = t.subtitle;
+  if (pageTitle) pageTitle.textContent = t.title;
+  if (pageSubtitle) pageSubtitle.textContent = t.subtitle; // <-- add this check
   if (languageLabel) languageLabel.textContent = t.language_label;
 
   // buttons & placeholders
@@ -560,6 +560,7 @@ function applyTranslations(langKey) {
   // translate actual options
   translateSelectOptions(langKey);
 }
+
 
 /* ---------- Chat history helpers ---------- */
 function loadHistory() {
