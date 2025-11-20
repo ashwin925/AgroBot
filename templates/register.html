@@ -11,20 +11,21 @@
     <script src="{{ url_for('static', filename='auth.js') }}" defer></script>
   </head>
   <body>
-    <div class="container">
+    <div class="container auth">
       <header>
-        <h1>Register</h1>
+        <h1 style="margin-top: 50px;">Register</h1>
       </header>
 
       <main>
         <div class="input-section">
-          <input id="reg-username" placeholder="Choose a username" />
+          <input id="reg-username" placeholder="Choose a username" style="height: 30px;"/>
           <input
             id="reg-password"
             type="password"
             placeholder="Choose a password"
+            style="height: 30px;"
           />
-          <button id="reg-btn" class="btn">Register</button>
+          <button id="reg-btn" class="register-button">Register</button>
           <p>Already have an account? <a href="/login">Login</a></p>
         </div>
       </main>

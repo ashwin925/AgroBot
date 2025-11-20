@@ -5,6 +5,7 @@ import os
 import requests
 from datetime import datetime
 import logging
+import json
 
 load_dotenv()
 app = Flask(__name__)
@@ -342,41 +343,98 @@ def msp_rate():
         )
 
         if not match:
-            return jsonify({
-                "results": [{
-                    "title": f"No MSP data found for '{crop}'.",
-                    "description": "Try common Rabi crops like Wheat, Gram, Barley, Mustard, etc.",
-                    "source": "data.gov.in"
-                }]
-            })
+            # No government data found. Try to enrich via Gemini if available.
+            if model is not None:
+                prompt_msgs = [
+                    {"role": "system", "content": "You are AgroAI, an expert agricultural assistant focused on South India and Tamil Nadu. When asked about an agricultural product, provide a concise JSON object with keys: desc, benefits, calories_per_g, estimated_price_per_kg, storage, common_uses. Respond only with valid JSON."},
+                    {"role": "user", "content": f"Provide JSON for the product '{crop}' with fields: desc, benefits, calories_per_g, estimated_price_per_kg, storage, common_uses. If you don't know the price, provide an approximate estimate for Tamil Nadu in INR per kg."}
+                ]
+                gresp = call_gemini_chat(prompt_msgs, language='english')
+                # try parse JSON
+                try:
+                    parsed = json.loads(gresp)
+                    desc = parsed.get('desc', '')
+                    benefits = parsed.get('benefits', '')
+                    calories = parsed.get('calories_per_g', parsed.get('calories', ''))
+                    est_price = parsed.get('estimated_price_per_kg')
+                    price_str = f"₹{est_price}/kg" if est_price else ''
+                    details = f"Short Description: {desc}\nHealth Benefits: {benefits}\nCalories per gram: {calories}\nPrice (est): {price_str}\nStorage: {parsed.get('storage','')}\nCommon uses: {parsed.get('common_uses','')}"
+                    return jsonify({"results": [{"title": f"{crop.title()} — Estimated Details","description": details,"price_in_inr_per_kg": price_str,"source": "Gemini (estimated)"}]})
+                except Exception:
+                    # fallback: return raw text received
+                    return jsonify({"results": [{"title": f"{crop.title()} — Info","description": gresp, "source": "Gemini (raw)"}]})
+            else:
+                return jsonify({
+                    "results": [{
+                        "title": f"No MSP data found for '{crop}'.",
+                        "description": "Try common Rabi crops like Wheat, Gram, Barley, Mustard, etc.",
+                        "source": "data.gov.in"
+                    }]
+                })
 
         msp_2025 = match.get("_2025_26___msp")
         msp_per_kg = quintal_to_kg(msp_2025)
 
-        info = product_info.get(crop, {
-            "desc": "An agricultural product widely cultivated across India.",
-            "benefits": "Provides essential nutrients and supports human health.",
-            "calories": "Varies between 3–5 kcal/g"
-        })
+        info = product_info.get(crop, None)
+        # If government data exists but product_info is minimal/missing, try to enrich via Gemini
+        if (not info or not info.get('desc')) and model is not None:
+            prompt_msgs = [
+                {"role": "system", "content": "You are AgroAI, an expert agricultural assistant focused on South India and Tamil Nadu. Provide concise JSON with fields: desc, benefits, calories_per_g, storage, common_uses."},
+                {"role": "user", "content": f"Provide JSON for the product '{crop}' with keys desc, benefits, calories_per_g, storage, common_uses. Keep it short."}
+            ]
+            gresp = call_gemini_chat(prompt_msgs, language='english')
+            try:
+                parsed = json.loads(gresp)
+                info = {
+                    'desc': parsed.get('desc', 'An agricultural product.'),
+                    'benefits': parsed.get('benefits', ''),
+                    'calories': parsed.get('calories_per_g', parsed.get('calories', ''))
+                }
+            except Exception:
+                # leave info as fallback
+                if not info:
+                    info = {
+                        'desc': 'An agricultural product widely cultivated across India.',
+                        'benefits': 'Provides essential nutrients and supports human health.',
+                        'calories': 'Varies between 3–5 kcal/g'
+                    }
+
+        # Build response description
+        desc_lines = []
+        if msp_2025:
+            desc_lines.append(f"MSP: ₹{msp_2025}/quintal (₹{msp_per_kg}/kg)")
+        if info:
+            desc_lines.append(f"Short Description: {info.get('desc','')}")
+            desc_lines.append(f"Health Benefits: {info.get('benefits','')}")
+            desc_lines.append(f"Calories per gram: {info.get('calories','')}")
 
         return jsonify({
             "results": [{
                 "title": f"{match.get('rabi_crop_wise', crop).title()} — MSP (2025-26)",
-                "description": (
-                    f"MSP: ₹{msp_2025}/quintal (₹{msp_per_kg}/kg)\n"
-                    f"Short Description: {info['desc']}\n"
-                    f"Health Benefits: {info['benefits']}\n"
-                    f"Calories per gram: {info['calories']}"
-                ),
-                "price_in_inr_per_kg": f"₹{msp_per_kg}/kg",
+                "description": "\n".join(desc_lines),
+                "price_in_inr_per_kg": (f"₹{msp_per_kg}/kg" if msp_per_kg else ''),
                 "source": "Government of India (Rajya Sabha)"
             }]
         })
 
     except Exception as e:
-        return jsonify({
-            "error": f"Failed to fetch MSP data: {e}"
-        })
+        logger.exception('DATA_GOV fetch failed')
+        # Try to fall back to Gemini for estimated product details if available
+        if model is not None:
+            try:
+                prompt_msgs = [
+                    {"role": "system", "content": "You are AgroAI, an expert agricultural assistant focused on South India and Tamil Nadu. When asked about an agricultural product, provide a concise text reply with lines: MSP (if known), Short Description, Health Benefits, Calories per gram, Price (estimate in ₹/kg). Keep replies short and human-readable."},
+                    {"role": "user", "content": f"Provide details for the product '{crop}' with MSP if known, plus a short description, health benefits, calories per gram, and an estimated price in INR per kg for Tamil Nadu."}
+                ]
+                gresp = call_gemini_chat(prompt_msgs, language='english')
+                # ensure simple output formatting similar to expected gov output
+                # If Gemini returns JSON or raw text, just place it in description
+                return jsonify({"results": [{"title": f"{crop.title()} — Estimated Details","description": str(gresp),"price_in_inr_per_kg": "","source": "Gemini (fallback)"}]})
+            except Exception:
+                logger.exception('Gemini fallback failed')
+                return jsonify({"error": "Failed to fetch MSP data and Gemini fallback failed. Please try again later."})
+        else:
+            return jsonify({"error": "Failed to fetch MSP data (network error). Please try again later."})
 
 
 

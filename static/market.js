@@ -19,11 +19,30 @@ document.addEventListener('DOMContentLoaded', () => {
       results.innerHTML = data.results.map(item => {
         const title = item.title || product;
         const desc = (item.description || '').replace(/\n/g, '<br/>');
-        const price = item.price_in_inr_per_kg || '';
+        const price = item.price_in_inr_per_kg || item.price || '';
+        const extra = item.extra || item.details || null;
+        const image = item.image || '';
+        let extraHtml = '';
+        if (extra && typeof extra === 'object') {
+          Object.keys(extra).forEach(k => {
+            extraHtml += `<div class="product-card-extra"><strong>${escapeHtml(k)}:</strong> ${escapeHtml(String(extra[k]))}</div>`;
+          });
+        } else if (extra) {
+          extraHtml = `<div class="product-card-extra">${escapeHtml(String(extra))}</div>`;
+        }
+
+        const imgHtml = image ? `<div><img src="${escapeHtml(image)}" style="max-width:160px;border-radius:8px;"/></div>` : '';
+
         return `<div class="product-card">
-                  <div class="product-card-title">${escapeHtml(title)}</div>
-                  <div class="product-card-desc">${desc}</div>
-                  <div><strong>Price:</strong> ${escapeHtml(price)}</div>
+                  <div style="display:flex;gap:12px;align-items:flex-start;">
+                    ${imgHtml}
+                    <div>
+                      <div class="product-card-title">${escapeHtml(title)}</div>
+                      <div class="product-card-desc">${desc}</div>
+                      <div class="product-card-price"><strong>Price:</strong> ${escapeHtml(price)}</div>
+                      ${extraHtml}
+                    </div>
+                  </div>
                 </div>`;
       }).join('');
     } catch (e) {

@@ -635,19 +635,26 @@ async function getAdvice() {
   const query = queryEl.value.trim();
   const lang = languageEl.value || 'english';
 
-  if (!soil || !climate || !query) {
+  if (!query) {
     // inform user in currently selected language if possible
-    alert((TRANSLATIONS[lang] && TRANSLATIONS[lang].query_placeholder) ? TRANSLATIONS[lang].query_placeholder : 'Please fill soil, climate, and question.');
+    alert((TRANSLATIONS[lang] && TRANSLATIONS[lang].query_placeholder) ? TRANSLATIONS[lang].query_placeholder : 'Please enter a question.');
     return;
   }
 
-  // operate on per-(soil,climate) chat history
-  loadHistoryForContext(soil, climate);
+  let usingContext = false;
+  if (soil && climate) {
+    usingContext = true;
+    // operate on per-(soil,climate) chat history
+    loadHistoryForContext(soil, climate);
 
-  // ensure a system context message exists
-  const contextContent = `Soil: ${soil} | Climate: ${climate}\nPlease always answer user queries taking into account these soil and climate conditions.`;
-  if (!messages.length || messages[0].role !== 'system' || messages[0].content !== contextContent) {
-    messages.unshift({ role: 'system', content: contextContent, timestamp: new Date().toISOString() });
+    // ensure a system context message exists
+    const contextContent = `Soil: ${soil} | Climate: ${climate}\nPlease always answer user queries taking into account these soil and climate conditions.`;
+    if (!messages.length || messages[0].role !== 'system' || messages[0].content !== contextContent) {
+      messages.unshift({ role: 'system', content: contextContent, timestamp: new Date().toISOString() });
+    }
+  } else {
+    // general chat: load global history
+    loadHistory();
   }
 
   const userMsg = {
@@ -656,7 +663,7 @@ async function getAdvice() {
     timestamp: new Date().toISOString()
   };
   messages.push(userMsg);
-  saveHistoryForContext(soil, climate);
+  if (usingContext) saveHistoryForContext(soil, climate); else saveHistory();
   addMessageElement('user', userMsg.content, userMsg.timestamp);
   setLoading(true);
 
