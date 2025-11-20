@@ -1,322 +1,475 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AgroAI Assistant</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
     <style>
       /* Minimal inline styling for quick testing; replace with style.css if you have one */
-      body { font-family: Arial, sans-serif; background:#f3f7f9; margin:0; padding:0;}
-      .container { max-width:900px; margin:24px auto; background:white; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08); padding:18px;}
-      header h1 { margin:0 0 6px 0;}
-      .chat-container { display:flex; gap:16px; }
-      .input-section { flex: 1 1 320px; display:flex; flex-direction:column; gap:8px; }
-      select, textarea, button, input { padding:8px; border-radius:6px; border:1px solid #ddd; font-size:14px;}
-      textarea { min-height:100px; resize:vertical; }
-      .chat-history { flex:1 1 420px; height:420px; overflow:auto; border:1px solid #eee; padding:12px; background:#fafafa; border-radius:6px;}
-      .message { margin:6px 0; padding:10px; border-radius:8px; max-width:90%; white-space:pre-wrap; }
-      .user-message { background:#e0f2ff; align-self:flex-end; }
-      .bot-message { background:#fff; border:1px solid #eee; }
-      .meta { font-size:12px; color:#666; margin-top:4px;}
-      .top-controls { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+      body {
+        font-family: Arial, sans-serif;
+        background: #f3f7f9;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 900px;
+        margin: 24px auto;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+        padding: 18px;
+      }
+      header h1 {
+        margin: 0 0 6px 0;
+      }
+      .chat-container {
+        display: flex;
+        gap: 16px;
+      }
+      .input-section {
+        flex: 1 1 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      select,
+      textarea,
+      button,
+      input {
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+      }
+      textarea {
+        min-height: 100px;
+        resize: vertical;
+      }
+      .chat-history {
+        flex: 1 1 420px;
+        height: 420px;
+        overflow: auto;
+        border: 1px solid #eee;
+        padding: 12px;
+        background: #fafafa;
+        border-radius: 6px;
+      }
+      .message {
+        margin: 6px 0;
+        padding: 10px;
+        border-radius: 8px;
+        max-width: 90%;
+        white-space: pre-wrap;
+      }
+      .user-message {
+        background: #e0f2ff;
+        align-self: flex-end;
+      }
+      .bot-message {
+        background: #fff;
+        border: 1px solid #eee;
+      }
+      .meta {
+        font-size: 12px;
+        color: #666;
+        margin-top: 4px;
+      }
+      .top-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
     </style>
-</head>
-<body style="
+  </head>
+  <body
+    style="
   background: url({{ url_for('static', filename='bgg.jpg') }}) no-repeat center center fixed;
   background-size: cover;
-  background-attachment: fixed;">
+  background-attachment: fixed;"
+  >
     <div class="container">
-        <header>
-            <h1>AgroAI Assistant</h1>
-        </header>
+      <header>
+        <h1>AgroAI Assistant</h1>
+      </header>
 
-        <div class="top-controls">
-            <label id="language-label" for="language">Language:</label>
-            <select id="language">
-                <option value="english">English</option>
-                <option value="hindi">हिन्दी (Hindi)</option>
-                <option value="tamil">தமிழ் (Tamil)</option>
-                <option value="telugu">తెలుగు (Telugu)</option>
-                <option value="kannada">ಕನ್ನಡ (Kannada)</option>
-                <option value="malayalam">മലയാളം (Malayalam)</option>
-                <option value="marathi">मराठी (Marathi)</option>
-                <option value="gujarati">ગુજરાતી (Gujarati)</option>
-                <option value="bengali">বাংলা (Bengali)</option>
-                <option value="punjabi">ਪੰਜਾਬੀ (Punjabi)</option>
-                <option value="odia">ଓଡ଼ିଆ (Odia)</option>
-                <option value="assamese">অসমীয়া (Assamese)</option>
-                <option value="urdu">اردو (Urdu)</option>
-            </select>
+      <div class="top-controls">
+        <label id="language-label" for="language">Language:</label>
+        <select id="language">
+          <option value="english">English</option>
+          <option value="hindi">हिन्दी (Hindi)</option>
+          <option value="tamil">தமிழ் (Tamil)</option>
+          <option value="telugu">తెలుగు (Telugu)</option>
+          <option value="kannada">ಕನ್ನಡ (Kannada)</option>
+          <option value="malayalam">മലയാളം (Malayalam)</option>
+          <option value="marathi">मराठी (Marathi)</option>
+          <option value="gujarati">ગુજરાતી (Gujarati)</option>
+          <option value="bengali">বাংলা (Bengali)</option>
+          <option value="punjabi">ਪੰਜਾਬੀ (Punjabi)</option>
+          <option value="odia">ଓଡ଼ିଆ (Odia)</option>
+          <option value="assamese">অসমীয়া (Assamese)</option>
+          <option value="urdu">اردو (Urdu)</option>
+        </select>
 
-            <button id="export-btn" style="border: 2px solid white;">Export History</button>
-            <button id="clear-btn" style="border: 2px solid white;">Clear History</button>
+        <button id="export-btn" style="border: 2px solid white">
+          Export History
+        </button>
+        <button id="clear-btn" style="border: 2px solid white">
+          Clear History
+        </button>
 
-            <a id="market-btn" href="/market" class="btn" style="text-decoration:none; padding:10px 12px;">Market Linkage</a>
+        <a
+          id="market-btn"
+          href="/market"
+          class="btn"
+          style="text-decoration: none; padding: 10px 12px"
+          >Market Linkage</a
+        >
+      </div>
+
+      <div class="chat-container">
+        <div class="input-section">
+          <select id="soil-type" required>
+            <option value="">Select Soil Type</option>
+            {% for soil_type, description in soil_types.items() %}
+            <option value="{{ soil_type }}">
+              {{ soil_type.title() }} - {{ description }}
+            </option>
+            {% endfor %}
+          </select>
+
+          <select id="climate" required>
+            <option value="">Select Climate Zone</option>
+            {% for climate, description in climate_zones.items() %}
+            <option value="{{ climate }}">
+              {{ climate.title() }} - {{ description }}
+            </option>
+            {% endfor %}
+          </select>
+
+          <textarea
+            id="query"
+            placeholder="Ask your agricultural question here..."
+            required
+          ></textarea>
+          <button id="ask-btn" style="border: 2px solid white">
+            Get Advice
+          </button>
+
+          <div style="margin-top: 8px">
+            <small
+              >Tip: Keep asking follow-ups — the chat will remain
+              continuous.</small
+            >
+          </div>
         </div>
 
-        <div class="chat-container">
-            <div class="input-section">
-                <select id="soil-type" required>
-                    <option value="">Select Soil Type</option>
-                    {% for soil_type, description in soil_types.items() %}
-                    <option value="{{ soil_type }}">{{ soil_type.title() }} - {{ description }}</option>
-                    {% endfor %}
-                </select>
-
-                <select id="climate" required>
-                    <option value="">Select Climate Zone</option>
-                    {% for climate, description in climate_zones.items() %}
-                    <option value="{{ climate }}">{{ climate.title() }} - {{ description }}</option>
-                    {% endfor %}
-                </select>
-
-                <textarea id="query" placeholder="Ask your agricultural question here..." required></textarea>
-                <button id="ask-btn" style="border: 2px solid white;">Get Advice</button>
-
-                <div style="margin-top:8px;">
-                  <small>Tip: Keep asking follow-ups — the chat will remain continuous.</small>
-                </div>
-            </div>
-
-            <div class="chat-history" id="chat-history">
-                <!-- Chat messages will appear here -->
-            </div>
+        <div class="chat-history" id="chat-history">
+          <!-- Chat messages will appear here -->
         </div>
+      </div>
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
-</body>
+  </body>
 
-<style>
-  /* ---------- easy control ---------- */
-  :root{
-    --card-alpha: 0.2; /* change this (0 = fully transparent, 1 = opaque) */
-    --card-bg: rgba(255,255,255,var(--card-alpha));
-    --card-border: 1.5px solid #000;
-    --text-color: #000;
-    --btn-gradient-start: #007bff; /* blue */
-    --btn-gradient-end: #06b6d4;   /* cyan */
-    --radius: 12px;
-    --shadow: 0 8px 28px rgba(0,0,0,0.12);
-    --glass-blur: 6px;
-  }
+  <style>
+    /* ---------- easy control ---------- */
+    :root {
+      --card-alpha: 0.2; /* change this (0 = fully transparent, 1 = opaque) */
+      --card-bg: rgba(255, 255, 255, var(--card-alpha));
+      --card-border: 1.5px solid #000;
+      --text-color: #000;
+      --btn-gradient-start: #007bff; /* blue */
+      --btn-gradient-end: #06b6d4; /* cyan */
+      --radius: 12px;
+      --shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+      --glass-blur: 6px;
+    }
 
-  /* reset / base */
-  * { box-sizing: border-box; }
-  html,body { height:100%; margin:0; font-family: Arial, Helvetica, sans-serif; color:var(--text-color); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;}
-  body { background-attachment: fixed; }
+    /* reset / base */
+    * {
+      box-sizing: border-box;
+    }
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text-color);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body {
+      background-attachment: fixed;
+    }
 
-  /* container covers viewport and centers content */
-  .container {
-    width: calc(100% - 0px);
-    max-width: 1000px;
-    height: calc(100vh - 48px); /* full viewport minus margin */
-    /* margin: 24px auto; */
-    padding: 20px;
-    background: var(--card-bg);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: var(--card-border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    border: 1.5px solid white;
-  }
+    /* container covers viewport and centers content */
+    .container {
+      width: calc(100% - 0px);
+      max-width: 1000px;
+      height: calc(100vh - 48px); /* full viewport minus margin */
+      /* margin: 24px auto; */
+      padding: 20px;
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: var(--card-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border: 1.5px solid white;
+    }
 
-  header { flex: 0 0 auto; }
-  header h1 { margin:0; font-size:1.6rem; color:var(--text-color); }
+    header {
+      flex: 0 0 auto;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      color: var(--text-color);
+    }
 
-  /* top controls area */
-  .top-controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 6px;
-    width: 985px;
-    border-radius: 8px;
-    background: transparent;
-    border: none;
-    /* border: var(--card-border); */
-    /* border: 1.5px solid white; */
-  }
+    /* top controls area */
+    .top-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 6px;
+      width: 985px;
+      border-radius: 8px;
+      background: transparent;
+      border: none;
+      /* border: var(--card-border); */
+      /* border: 1.5px solid white; */
+    }
 
-  /* chat layout */
-.chat-container {
-  display: flex;
-  gap: 18px;
-  flex: 1 1 auto;
-  min-height: 0;
-  justify-content: space-between;
-  align-items: stretch;
-  transition: all 0.4s ease-in-out;
-}
+    /* chat layout */
+    .chat-container {
+      display: flex;
+      gap: 18px;
+      flex: 1 1 auto;
+      min-height: 0;
+      justify-content: space-between;
+      align-items: stretch;
+      transition: all 0.4s ease-in-out;
+    }
 
-/* Input section (left) */
-.input-section {
-  flex: 0 0 40%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 12px;
-  background: linear-gradient(
-    rgba(255, 255, 255, calc(var(--card-alpha) - 0.04)),
-    rgba(255, 255, 255, calc(var(--card-alpha) - 0.04))
-  );
-  backdrop-filter: blur(calc(var(--glass-blur) - 1px));
-  border: var(--card-border);
-  width: 870px;
-  max-width: 870px;
-  min-height: 300px;
-  max-height: 75vh;
-  height: 100%;
-  overflow-y: auto;
-  transition: all 0.4s ease-in-out;
-  animation: fadeInSlide 0.6s ease-in-out;
-}
+    /* Input section (left) */
+    .input-section {
+      flex: 0 0 40%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 12px;
+      background: linear-gradient(
+        rgba(255, 255, 255, calc(var(--card-alpha) - 0.04)),
+        rgba(255, 255, 255, calc(var(--card-alpha) - 0.04))
+      );
+      backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+      border: var(--card-border);
+      width: 870px;
+      max-width: 870px;
+      min-height: 300px;
+      max-height: 75vh;
+      height: 100%;
+      overflow-y: auto;
+      transition: all 0.4s ease-in-out;
+      animation: fadeInSlide 0.6s ease-in-out;
+    }
 
-/* Chat history (right) */
-.chat-history {
-  flex: 1 1 58%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  border-radius: 12px;
-  background: linear-gradient(
-    rgba(255, 255, 255, calc(var(--card-alpha) - 0.08)),
-    rgba(255, 255, 255, calc(var(--card-alpha) - 0.08))
-  );
-  backdrop-filter: blur(calc(var(--glass-blur) - 1px));
-  border: var(--card-border);
-  padding: 16px;
-  overflow-y: auto;
-  min-height: 300px;
-  max-height: 75vh;
-  height: 100%;
-  width: 100px;
-  transition: all 0.4s ease-in-out;
-  animation: fadeInSlide 0.6s ease-in-out;
-}
+    /* Chat history (right) */
+    .chat-history {
+      flex: 1 1 58%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      border-radius: 12px;
+      background: linear-gradient(
+        rgba(255, 255, 255, calc(var(--card-alpha) - 0.08)),
+        rgba(255, 255, 255, calc(var(--card-alpha) - 0.08))
+      );
+      backdrop-filter: blur(calc(var(--glass-blur) - 1px));
+      border: var(--card-border);
+      padding: 16px;
+      overflow-y: auto;
+      min-height: 300px;
+      max-height: 75vh;
+      height: 100%;
+      width: 100px;
+      transition: all 0.4s ease-in-out;
+      animation: fadeInSlide 0.6s ease-in-out;
+    }
 
-/* Prevent shrinking when clearing messages */
-.chat-history:empty::before {
-  content: "Chat cleared. Start a new question!";
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-style: italic;
-  color: rgba(0, 0, 0, 0.6);
-  height: 100%;
-}
+    /* Prevent shrinking when clearing messages */
+    .chat-history:empty::before {
+      content: "Chat cleared. Start a new question!";
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-style: italic;
+      color: rgba(0, 0, 0, 0.6);
+      height: 100%;
+    }
 
-  /* inputs, selects, textarea, search */
-  select, textarea, input[type="text"], input, button {
-    color: var(--text-color);
-    border: var(--card-border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 0.95rem;
-    background: rgba(255,255,255,0.85);
-    outline: none;
-  }
-  textarea { min-height: 120px; resize: vertical; }
-  select { appearance: none; -webkit-appearance: none; -moz-appearance: none; }
+    /* inputs, selects, textarea, search */
+    select,
+    textarea,
+    input[type="text"],
+    input,
+    button {
+      color: var(--text-color);
+      border: var(--card-border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      background: rgba(255, 255, 255, 0.85);
+      outline: none;
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+    }
 
-  /* message styling */
-  .message {
-    margin: 8px 0;
-    padding: 12px;
-    border-radius: 14px;
-    max-width: 88%;
-    white-space: pre-wrap;
-    color: var(--text-color);
-  }
-  .user-message {
-    background: linear-gradient(135deg, rgba(7,123,255,0.12), rgba(6,182,212,0.12));
-    align-self: flex-end;
-    border: 1px solid rgba(0,0,0,0.06);
-  }
-  .bot-message {
-    background: rgba(255,255,255,0.6);
-    border: 1px solid rgba(0,0,0,0.06);
-    align-self: flex-start;
-  }
-  .meta { font-size: 0.75rem; color: rgba(0,0,0,0.7); margin-top:6px; }
+    /* message styling */
+    .message {
+      margin: 8px 0;
+      padding: 12px;
+      border-radius: 14px;
+      max-width: 88%;
+      white-space: pre-wrap;
+      color: var(--text-color);
+    }
+    .user-message {
+      background: linear-gradient(
+        135deg,
+        rgba(7, 123, 255, 0.12),
+        rgba(6, 182, 212, 0.12)
+      );
+      align-self: flex-end;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .bot-message {
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      align-self: flex-start;
+    }
+    .meta {
+      font-size: 0.75rem;
+      color: rgba(0, 0, 0, 0.7);
+      margin-top: 6px;
+    }
 
-  /* product-card when showing price */
-  .product-card {
-    background: rgba(255,255,255,0.65);
-    border-radius: 10px;
-    padding: 10px;
-    margin: 8px 0;
-    border: var(--card-border);
-  }
-  .product-card-title { font-weight:700; color:var(--text-color); }
-  .product-card-desc { font-size:0.92rem; color:var(--text-color); margin:6px 0; }
+    /* product-card when showing price */
+    .product-card {
+      background: rgba(255, 255, 255, 0.65);
+      border-radius: 10px;
+      padding: 10px;
+      margin: 8px 0;
+      border: var(--card-border);
+    }
+    .product-card-title {
+      font-weight: 700;
+      color: var(--text-color);
+    }
+    .product-card-desc {
+      font-size: 0.92rem;
+      color: var(--text-color);
+      margin: 6px 0;
+    }
 
-  /* buttons: blue -> cyan gradient */
-  button {
-    cursor: pointer;
-    font-weight: 600;
-    background: linear-gradient(90deg, var(--btn-gradient-start), var(--btn-gradient-end));
-    color: #fff;
-    border: none; /* visual border removed from primary buttons to keep gradient clean */
-    box-shadow: 0 6px 16px rgba(6,182,212,0.12);
-  }
-  /* but for bordered areas (like top-controls) keep black border for small buttons */
-  .top-controls button { border: var(--card-border); background: linear-gradient(90deg, var(--btn-gradient-start), var(--btn-gradient-end)); color:#fff; }
+    /* buttons: blue -> cyan gradient */
+    button {
+      cursor: pointer;
+      font-weight: 600;
+      background: linear-gradient(
+        90deg,
+        var(--btn-gradient-start),
+        var(--btn-gradient-end)
+      );
+      color: #fff;
+      border: none; /* visual border removed from primary buttons to keep gradient clean */
+      box-shadow: 0 6px 16px rgba(6, 182, 212, 0.12);
+    }
+    /* but for bordered areas (like top-controls) keep black border for small buttons */
+    .top-controls button {
+      border: var(--card-border);
+      background: linear-gradient(
+        90deg,
+        var(--btn-gradient-start),
+        var(--btn-gradient-end)
+      );
+      color: #fff;
+    }
 
-  /* accessibility / focus */
-  input:focus, textarea:focus, select:focus, button:focus {
-    box-shadow: 0 0 0 3px rgba(6,182,212,0.12);
-  }
+    /* accessibility / focus */
+    input:focus,
+    textarea:focus,
+    select:focus,
+    button:focus {
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.12);
+    }
 
-  /* small helper */
-  .top-controls input, .top-controls select { background: rgba(255,255,255,0.9); }
+    /* small helper */
+    .top-controls input,
+    .top-controls select {
+      background: rgba(255, 255, 255, 0.9);
+    }
 
-  /* Nice fade + slide animation */
-@keyframes fadeInSlide {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+    /* Nice fade + slide animation */
+    @keyframes fadeInSlide {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
-/* Add smooth appearance to buttons and inputs */
-button, select, textarea, input {
-  transition: all 0.3s ease;
-}
+    /* Add smooth appearance to buttons and inputs */
+    button,
+    select,
+    textarea,
+    input {
+      transition: all 0.3s ease;
+    }
 
-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 22px rgba(6, 182, 212, 0.25);
-}
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 22px rgba(6, 182, 212, 0.25);
+    }
 
-/* Chat messages animation */
-.message {
-  animation: popIn 0.3s ease-in-out;
-}
-@keyframes popIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-</style>
-
+    /* Chat messages animation */
+    .message {
+      animation: popIn 0.3s ease-in-out;
+    }
+    @keyframes popIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+  </style>
 </html>

@@ -1,32 +1,40 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Market - AgroAI</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="{{ url_for('static', filename='market.js') }}" defer></script>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>Online Market</h1>
-      <p>Search product MSP / price info (govt + aggregated)</p>
-    </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Market - AgroAI</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <script src="{{ url_for('static', filename='market.js') }}" defer></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Online Market</h1>
+        <p>Search product MSP / price info (govt + aggregated)</p>
+      </header>
 
-    <div class="top-controls">
-      <a class="btn" href="/">← Back</a>
-      <input id="market-search" placeholder="Enter product name (e.g. wheat)" />
-      <button id="market-search-btn" class="btn">Search</button>
+      <div class="top-controls">
+        <a class="btn" href="/">← Back</a>
+        <input
+          id="market-search"
+          placeholder="Enter product name (e.g. wheat)"
+        />
+        <button id="market-search-btn" class="btn">Search</button>
+      </div>
+
+      <main>
+        <div id="market-results"></div>
+      </main>
+
+      <footer>
+        <small
+          >Prices are fetched from public datasets and may be partial.</small
+        >
+      </footer>
     </div>
-
-    <main>
-      <div id="market-results"></div>
-    </main>
-
-    <footer>
-      <small>Prices are fetched from public datasets and may be partial.</small>
-    </footer>
-  </div>
-</body>
+  </body>
 </html>

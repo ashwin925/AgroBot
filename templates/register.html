@@ -1,26 +1,33 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Register - AgroAI</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="{{ url_for('static', filename='auth.js') }}" defer></script>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>Register</h1>
-    </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Register - AgroAI</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <script src="{{ url_for('static', filename='auth.js') }}" defer></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Register</h1>
+      </header>
 
-    <main>
-      <div class="input-section">
-        <input id="reg-username" placeholder="Choose a username" />
-        <input id="reg-password" type="password" placeholder="Choose a password" />
-        <button id="reg-btn" class="btn">Register</button>
-        <p>Already have an account? <a href="/login">Login</a></p>
-      </div>
-    </main>
-  </div>
-</body>
+      <main>
+        <div class="input-section">
+          <input id="reg-username" placeholder="Choose a username" />
+          <input
+            id="reg-password"
+            type="password"
+            placeholder="Choose a password"
+          />
+          <button id="reg-btn" class="btn">Register</button>
+          <p>Already have an account? <a href="/login">Login</a></p>
+        </div>
+      </main>
+    </div>
+  </body>
 </html>
