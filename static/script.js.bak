@@ -1,0 +1,29 @@
+/* backup of static/script.js */
+
+/* static/script.js
+   Fully corrected multilingual UI + continuous chat + online market linkage
+   - Ensures translations apply to ALL languages in dropdown
+   - Translates soil/climate options (labels) while preserving option values
+   - Keeps market_online fetch and other features working
+*/
+
+const STORAGE_KEY = 'agroai_chat_history_v4';
+let messages = [];
+
+/* ---------- DOM refs ---------- */
+const soilSelect = document.getElementById('soil-type');
+const climateSelect = document.getElementById('climate');
+const queryEl = document.getElementById('query');
+const askBtn = document.getElementById('ask-btn');
+const chatHistoryEl = document.getElementById('chat-history');
+const languageEl = document.getElementById('language');
+const exportBtn = document.getElementById('export-btn');
+const clearBtn = document.getElementById('clear-btn');
+const marketBtn = document.getElementById('market-btn');
+const marketCropInput = document.getElementById('market-crop');
+const pageTitle = document.querySelector('header h1');
+const pageSubtitle = document.querySelector('header p');
+const topTip = document.querySelector('.top-tip');
+const languageLabel = document.getElementById('language-label');
+
+/* rest of file omitted in backup for space - original preserved in workspace */

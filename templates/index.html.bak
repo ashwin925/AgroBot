@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>AgroAI Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AgroAI Assistant</h1>
+        </header>
+
+        <div class="top-controls">
+            <label id="language-label" for="language">Language:</label>
+            <select id="language">
+                <option value="english">English</option>
+                <option value="hindi">हिन्दी (Hindi)</option>
+                <option value="tamil">தமிழ் (Tamil)</option>
+                <option value="telugu">తెలుగు (Telugu)</option>
+            </select>
+
+            <button id="export-btn">Export History</button>
+            <button id="clear-btn">Clear History</button>
+
+            <input id="market-crop" placeholder="Enter crop for market (e.g. rice)"/>
+            <button id="market-btn">Market Linkage</button>
+        </div>
+
+        <div class="chat-container">
+            <div class="input-section">
+                <select id="soil-type" required>
+                    <option value="">Select Soil Type</option>
+                    {% for soil_type, description in soil_types.items() %}
+                    <option value="{{ soil_type }}">{{ soil_type.title() }} - {{ description }}</option>
+                    {% endfor %}
+                </select>
+
+                <select id="climate" required>
+                    <option value="">Select Climate Zone</option>
+                    {% for climate, description in climate_zones.items() %}
+                    <option value="{{ climate }}">{{ climate.title() }} - {{ description }}</option>
+                    {% endfor %}
+                </select>
+
+                <textarea id="query" placeholder="Ask your agricultural question here..." required></textarea>
+                <button id="ask-btn">Get Advice</button>
+
+                <div>
+                  <small>Tip: Keep asking follow-ups — the chat will remain continuous.</small>
+                </div>
+            </div>
+
+            <div class="chat-history" id="chat-history">
+                <!-- Chat messages will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

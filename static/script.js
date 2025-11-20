@@ -6,7 +6,32 @@
 */
 
 const STORAGE_KEY = 'agroai_chat_history_v4';
+const STORAGE_PREFIX = 'agroai_chat_v4::';
 let messages = [];
+
+function makeStorageKey(soil, climate) {
+  return `${STORAGE_PREFIX}${soil || '__'}::${climate || '__'}`;
+}
+
+function loadHistoryForContext(soil, climate) {
+  const raw = localStorage.getItem(makeStorageKey(soil, climate));
+  if (!raw) {
+    messages = [];
+    return;
+  }
+  try {
+    const obj = JSON.parse(raw);
+    messages = obj.messages || [];
+  } catch (e) {
+    console.error('Failed to parse history for context', e);
+    messages = [];
+  }
+}
+
+function saveHistoryForContext(soil, climate) {
+  localStorage.setItem(makeStorageKey(soil, climate), JSON.stringify({ messages, savedAt: new Date().toISOString() }));
+  localStorage.setItem('agroai_last_context', `${soil}::${climate}`);
+}
 
 /* ---------- DOM refs ---------- */
 const soilSelect = document.getElementById('soil-type');
@@ -616,13 +641,22 @@ async function getAdvice() {
     return;
   }
 
+  // operate on per-(soil,climate) chat history
+  loadHistoryForContext(soil, climate);
+
+  // ensure a system context message exists
+  const contextContent = `Soil: ${soil} | Climate: ${climate}\nPlease always answer user queries taking into account these soil and climate conditions.`;
+  if (!messages.length || messages[0].role !== 'system' || messages[0].content !== contextContent) {
+    messages.unshift({ role: 'system', content: contextContent, timestamp: new Date().toISOString() });
+  }
+
   const userMsg = {
     role: 'user',
-    content: `Soil Type: ${soil}\nClimate: ${climate}\nQuestion: ${query}`,
+    content: `${query}`,
     timestamp: new Date().toISOString()
   };
   messages.push(userMsg);
-  saveHistory();
+  saveHistoryForContext(soil, climate);
   addMessageElement('user', userMsg.content, userMsg.timestamp);
   setLoading(true);
 
@@ -645,7 +679,7 @@ async function getAdvice() {
       timestamp: data.timestamp || new Date().toISOString()
     };
     messages.push(botMsg);
-    saveHistory();
+    saveHistoryForContext(soil, climate);
     addMessageElement('assistant', botMsg.content, botMsg.timestamp);
   } catch (err) {
     console.error(err);
@@ -657,6 +691,12 @@ async function getAdvice() {
 
 /* ---------- Online market linkage (calls /market_online) ---------- */
 async function getMarketInfo() {
+  // The inline market search may have been moved to its own page. Guard against missing elements.
+  if (!marketCropInput) {
+    addMessageElement('assistant', 'Please use the Market page to search products.');
+    return;
+  }
+
   const product = marketCropInput.value.trim();
   const lang = languageEl.value || 'english';
   if (!product) {
@@ -729,7 +769,8 @@ function clearHistory() {
 askBtn.addEventListener('click', getAdvice);
 exportBtn.addEventListener('click', exportHistory);
 clearBtn.addEventListener('click', clearHistory);
-marketBtn.addEventListener('click', getMarketInfo);
+if (marketBtn && marketCropInput) marketBtn.addEventListener('click', getMarketInfo);
+// If market button is a link (navigates to /market), we don't attach listener so navigation works.
 languageEl.addEventListener('change', (e) => {
   const lang = e.target.value;
   applyTranslations(lang);
@@ -737,8 +778,31 @@ languageEl.addEventListener('change', (e) => {
 
 /* ---------- Initialize on load ---------- */
 (function init() {
+  // Require client-side login before using the app
+  const loggedIn = localStorage.getItem('agroai_logged_in') === 'true';
+  if (!loggedIn && window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+    window.location.href = '/login';
+    return;
+  }
+
   // Make sure default language applied and options translated
   const initialLang = languageEl.value || 'english';
   applyTranslations(initialLang);
-  loadHistory();
+
+  // try to load last used context (soil::climate)
+  const last = localStorage.getItem('agroai_last_context');
+  if (last) {
+    const parts = last.split('::');
+    if (parts.length === 2) {
+      soilSelect.value = parts[0] || '';
+      climateSelect.value = parts[1] || '';
+      if (soilSelect.value && climateSelect.value) {
+        loadHistoryForContext(soilSelect.value, climateSelect.value);
+        renderMessages();
+      }
+    }
+  } else {
+    // fallback to global history if present
+    loadHistory();
+  }
 })();

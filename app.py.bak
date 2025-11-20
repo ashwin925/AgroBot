@@ -4,15 +4,10 @@ from dotenv import load_dotenv
 import os
 import requests
 from datetime import datetime
-import logging
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
-
-# basic logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('agrobot')
 
 # Gemini config
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -75,77 +70,27 @@ def build_system_prompt(language_code):
 
 
 def call_gemini_chat(messages, language="english"):
-    """Send conversation to Gemini and enforce response language.
-
-    messages: list of dicts with keys 'role' and 'content'. Role may be 'system','user','assistant'.
-    This function will prepend a language system prompt and then include any provided system message.
-    Returns a string reply or an error message.
-    """
+    """Send conversation and enforce response language."""
     if model is None:
         return "Gemini API key missing. Please configure GOOGLE_API_KEY in .env."
 
+    system_prompt = build_system_prompt(language)
+    convo = system_prompt + "\n\n"
+    for m in messages:
+        role = "User" if m["role"] == "user" else "Assistant"
+        convo += f"{role}: {m['content']}\n"
+
     try:
-        system_prompt = build_system_prompt(language)
-
-        # Build a plaintext conversation for older API usage
-        convo_lines = [f"System: {system_prompt}"]
-
-        for m in messages:
-            role_raw = (m.get('role') or 'user').lower()
-            content = m.get('content', '')
-            if role_raw == 'system':
-                # include any explicit system guidance the client provided
-                convo_lines.append(f"System: {content}")
-            elif role_raw in ('assistant', 'bot'):
-                convo_lines.append(f"Assistant: {content}")
-            else:
-                convo_lines.append(f"User: {content}")
-
-        convo = "\n".join(convo_lines)
-
         resp = model.generate_content(convo)
-        return getattr(resp, 'text', str(resp)).strip()
+        return resp.text.strip()
     except Exception as e:
-        logger.exception('Gemini chat error')
         return f"Error from Gemini: {e}"
 
 
 # ---------- Routes ----------
 @app.route('/')
 def home():
-    try:
-        return render_template('index.html', soil_types=SOIL_TYPES, climate_zones=CLIMATE_ZONES)
-    except Exception as e:
-        logger.exception('Error rendering index')
-        return ("An internal error occurred while rendering the main page. "
-                "Check server logs for details."), 500
-
-
-@app.route('/market')
-def market_page():
-    try:
-        return render_template('market.html', soil_types=SOIL_TYPES, climate_zones=CLIMATE_ZONES)
-    except Exception as e:
-        logger.exception('Error rendering market page')
-        return ("Internal error rendering market page."), 500
-
-
-@app.route('/login')
-def login_page():
-    try:
-        return render_template('login.html')
-    except Exception as e:
-        logger.exception('Error rendering login page')
-        return ("Internal error rendering login page."), 500
-
-
-@app.route('/register')
-def register_page():
-    try:
-        return render_template('register.html')
-    except Exception as e:
-        logger.exception('Error rendering register page')
-        return ("Internal error rendering register page."), 500
+    return render_template('index.html', soil_types=SOIL_TYPES, climate_zones=CLIMATE_ZONES)
 
 
 @app.route('/get_advice', methods=['POST'])
